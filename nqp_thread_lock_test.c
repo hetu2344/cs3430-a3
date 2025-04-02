@@ -32,7 +32,7 @@ int main(void){
         exit(-1);
     }
 
-    printf("\nThread [main]: Counter is %d\n", counter);
+    printf("\nThread [main]: Counter is %d\n\n", counter);
     // printf("Starting thread 1\n");
     pthread_create(&thread_1, NULL, increment_counter_to_100000,  &thread_ids[0]);
     pthread_create(&thread_2, NULL, increment_counter_to_100000,  &thread_ids[1]);

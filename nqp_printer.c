@@ -38,6 +38,9 @@ int main( void )
     nqp_thread_t *thread_b = nqp_thread_create( printer, &letters[1] );
 
     nqp_sched_start();
+    // (void) thread_a;
+    // (void) thread_b;
+
 
     nqp_thread_join( thread_a );
     nqp_thread_join( thread_b );

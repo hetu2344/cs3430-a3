@@ -3,6 +3,8 @@
 #include "nqp_thread_locks.h"
 #include <stdlib.h>
 
+
+
 struct NQP_THREAD_MUTEX_T {
     atomic_flag guard;
     uint32_t flag;
@@ -82,6 +84,11 @@ int nqp_thread_mutex_unlock( nqp_mutex_t *mutex )
 int nqp_thread_mutex_destroy( nqp_mutex_t *mutex )
 {
     (void) mutex;
+
+    if(mutex->init){
+        free(mutex);
+        return 0;
+    }
 
     return -1;
 }
