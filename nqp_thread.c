@@ -10,6 +10,7 @@
 #include "nqp_thread_sched.h"
 
 static nqp_scheduling_policy system_policy = NQP_SP_TWOTHREADS;
+const nqp_sp_settings *policy_settings = NULL;
 
 typedef enum NQP_THREAD_STATUS_T{
     RUNNING,
@@ -26,6 +27,16 @@ struct NQP_THREAD_T {
     nqp_thread_stat status;
 };
 
+typedef nqp_thread_t* (*nqp_sched_get_next_func)(void);
+typedef void (*nqp_sched_start_func)(void);
+
+typedef struct NQP_SCHEDULAR_T{
+    nqp_scheduling_policy sched_policy;
+    const nqp_sp_settings* sched_settings;
+    nqp_sched_get_next_func get_next_thread;
+    nqp_sched_start_func start_sched;
+}nqp_sched_t;
+
 static ucontext_t main_context;
 static nqp_thread_t* all_threads[100];
 static int add_thread_index = 0;
@@ -34,6 +45,15 @@ static int curr_thread_index = -1;
 static struct itimerval timer;
 static int timer_flag = 0;
 static int timer_intr_usec = 100;
+
+static nqp_sched_t* schedular;
+
+nqp_thread_t *get_fifo_next_thread();
+nqp_thread_t *get_mlfq_next_thread();
+nqp_thread_t *get_rr_next_thread();
+void handle_nqp_fifo_start();
+void handle_nqp_mlfq_start();
+void handle_nqp_rr_start();
 
 void timer_interrupt_handler(int sig){
     // printf("interrupt\n");
@@ -102,7 +122,21 @@ int nqp_thread_join( nqp_thread_t *thread )
     return -1;
 }
 
-
+void init_nqp_sched(){
+    schedular = malloc(sizeof(*schedular));
+    schedular->sched_policy = system_policy;
+    schedular->sched_settings = policy_settings;
+    if(system_policy == NQP_SP_FIFO){
+        schedular->get_next_thread = get_fifo_next_thread;
+        schedular->start_sched = handle_nqp_fifo_start;
+    } else if(system_policy == NQP_SP_RR || system_policy == NQP_SP_TWOTHREADS){
+        schedular->get_next_thread = get_rr_next_thread;
+        schedular->start_sched = handle_nqp_rr_start;
+    } else if(system_policy == NQP_SP_MLFQ){
+        schedular->get_next_thread = get_mlfq_next_thread;
+        schedular->start_sched = handle_nqp_mlfq_start;
+    }
+}
 
 int nqp_sched_init( const nqp_scheduling_policy policy,
                     const nqp_sp_settings *settings )
@@ -115,6 +149,8 @@ int nqp_sched_init( const nqp_scheduling_policy policy,
     if ( policy >= NQP_SP_TWOTHREADS && policy < NQP_SP_POLICIES )
     {
         system_policy = policy;
+        policy_settings = settings;
+        // init_nqp_sched(policy, settings);
         ret = 0;
     }
     return ret;
@@ -155,6 +191,10 @@ nqp_thread_t *get_rr_next_thread(){
     
 }
 
+nqp_thread_t *get_mlfq_next_thread(){
+    return NULL;
+}
+
 nqp_thread_t *get_fifo_next_thread(){
     if(curr_thread_index == add_thread_index){
         // end of the queue, no job left
@@ -164,15 +204,15 @@ nqp_thread_t *get_fifo_next_thread(){
     }
 }
 
-nqp_thread_t *get_next_thread(){
-    if(system_policy == NQP_SP_TWOTHREADS || system_policy == NQP_SP_RR){
-        return get_rr_next_thread();
-    } else if(system_policy == NQP_SP_FIFO){
-        return get_fifo_next_thread();
-    }
+// nqp_thread_t *get_next_thread(){
+//     if(system_policy == NQP_SP_TWOTHREADS || system_policy == NQP_SP_RR){
+//         return get_rr_next_thread();
+//     } else if(system_policy == NQP_SP_FIFO){
+//         return get_fifo_next_thread();
+//     }
 
-    return NULL;
-}
+//     return NULL;
+// }
 
 void nqp_yield( void )
 {
@@ -188,7 +228,7 @@ void nqp_yield( void )
 
     curr_thread->status = curr_thread->status == DONE ? DONE : SLEEP;
     // swap to the next thread
-    nqp_thread_t* next_thread = get_next_thread();
+    nqp_thread_t* next_thread = schedular->get_next_thread();
     if(next_thread == NULL){
         struct itimerval timer = {0}; // Zeroes both it_value and it_interval
         if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
@@ -245,11 +285,22 @@ void handle_nqp_fifo_start(){
     swapcontext(&main_context, &all_threads[0]->context);
 }
 
+void handle_nqp_mlfq_start(){
+    return;
+}
+
 void nqp_sched_start( void )
 {
-    if(system_policy == NQP_SP_TWOTHREADS || system_policy == NQP_SP_RR){
-        handle_nqp_rr_start();
-    } else if(system_policy == NQP_SP_FIFO){
-        handle_nqp_fifo_start();
-    }
+    // if(system_policy == NQP_SP_TWOTHREADS || system_policy == NQP_SP_RR){
+    //     handle_nqp_rr_start();
+    // } else if(system_policy == NQP_SP_FIFO){
+    //     handle_nqp_fifo_start();
+    // }
+
+    // nqp_sched_init() not called by use
+    // so default will be set to RR/TWO_THREADS
+    // if(schedular == NULL){
+    init_nqp_sched();
+    // }
+    schedular->start_sched();
 }

@@ -63,7 +63,8 @@ int main(void){
     // pthread_join(thread_2, NULL);
     // printf("Thread [2]: Returned\n");
 
-    nqp_sched_init(NQP_SP_RR, NULL);
+    // Comment out the line below to run in RR or default policy
+    nqp_sched_init(NQP_SP_FIFO, NULL);
 
     nqp_sched_start();
 
