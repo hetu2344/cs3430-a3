@@ -3,8 +3,9 @@
 #include <signal.h>
 #include <ucontext.h>
 #include <stdio.h>
-#include <sys/time.h>
+// #include <sys/time.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "nqp_thread.h"
 #include "nqp_thread_sched.h"
@@ -38,13 +39,16 @@ typedef struct NQP_SCHEDULAR_T{
 }nqp_sched_t;
 
 static ucontext_t main_context;
+static nqp_thread_t *main_thread;
 static nqp_thread_t* all_threads[100];
 static int add_thread_index = 0;
 static int curr_thread_index = -1;
 
-static struct itimerval timer;
+// static struct itimerval timer;
 static int timer_flag = 0;
-static int timer_intr_usec = 100;
+// static int timer_intr_usec = 100;
+
+
 
 static nqp_sched_t* schedular;
 
@@ -116,7 +120,10 @@ int nqp_thread_join( nqp_thread_t *thread )
 
     if ( thread != NULL )
     {
-
+        while(thread->status != DONE){
+            // printf("hiii\n");
+            nqp_yield();
+        }
     }
     
     return -1;
@@ -196,12 +203,24 @@ nqp_thread_t *get_mlfq_next_thread(){
 }
 
 nqp_thread_t *get_fifo_next_thread(){
-    if(curr_thread_index == add_thread_index){
-        // end of the queue, no job left
-        return NULL;
-    } else {
-        return all_threads[++curr_thread_index];
+    // if(curr_thread_index == add_thread_index){
+    //     // end of the queue, no job left
+    //     return NULL;
+    // } else {
+    //     return all_threads[++curr_thread_index];
+    // }
+
+    nqp_thread_t *ret_thread = all_threads[curr_thread_index];
+
+    if(ret_thread->status == DONE){
+        if(curr_thread_index == add_thread_index){
+            // end of the queue, no job left
+            return NULL;
+        } else {
+            return all_threads[++curr_thread_index];
+        }
     }
+    return ret_thread;
 }
 
 // nqp_thread_t *get_next_thread(){
@@ -230,11 +249,11 @@ void nqp_yield( void )
     // swap to the next thread
     nqp_thread_t* next_thread = schedular->get_next_thread();
     if(next_thread == NULL){
-        struct itimerval timer = {0}; // Zeroes both it_value and it_interval
-        if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
-            perror("setitimer disable");
-            exit(EXIT_FAILURE);
-        }
+        // struct itimerval timer = {0}; // Zeroes both it_value and it_interval
+        // if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
+        //     perror("setitimer disable");
+        //     exit(EXIT_FAILURE);
+        // }
         setcontext(&main_context);
         timer_flag = 0;
         return;
@@ -257,32 +276,62 @@ void nqp_exit( void )
     }
 }
 
-void init_timer_interrupt(){
-    signal(SIGALRM, timer_interrupt_handler);
-    timer.it_value.tv_sec = 0;
-    timer.it_value.tv_usec = timer_intr_usec;
+// void init_timer_interrupt(){
+//     signal(SIGALRM, timer_interrupt_handler);
+//     timer.it_value.tv_sec = 0;
+//     timer.it_value.tv_usec = timer_intr_usec;
 
-    timer.it_interval.tv_sec = 0;
-    timer.it_interval.tv_usec = timer_intr_usec;
+//     timer.it_interval.tv_sec = 0;
+//     timer.it_interval.tv_usec = timer_intr_usec;
 
-    if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
-        perror("setitimer");
-        exit(EXIT_FAILURE);
+//     if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
+//         perror("setitimer");
+//         exit(EXIT_FAILURE);
+//     }
+// }
+
+void randomly_add_main_thread(){
+    // setting up the seed
+    srand(time(NULL));
+    int r_index = rand() % (add_thread_index + 1);
+    // printf("Adding at index: [%d]\n", r_index);
+
+    main_thread = malloc(sizeof(*main_thread));
+    main_thread->status = SLEEP;
+    main_thread->arg = NULL;
+    main_thread->task = NULL;
+    // main_thread->context = {0};
+    
+    // make space for the main thread
+    for(int i = add_thread_index - 1; i >= r_index; i--){
+        all_threads[i+1] = all_threads[i];
     }
+    
+    getcontext(&main_context);
+    main_thread->context = main_context;
+    all_threads[r_index] = main_thread;
+    add_thread_index++;
 }
 
 void handle_nqp_rr_start(){
     // start with first thread: index = 0
+    randomly_add_main_thread();
     curr_thread_index = 0;
-    init_timer_interrupt();
+    // init_timer_interrupt();
     all_threads[0]->status = RUNNING;
-    swapcontext(&main_context, &all_threads[0]->context);
+    swapcontext(&main_thread->context, &all_threads[0]->context);
 }
 
 void handle_nqp_fifo_start(){
     curr_thread_index = 0;
+
+    main_thread = malloc(sizeof(*main_thread));
+    main_thread->status = SLEEP;
+    main_thread->arg = NULL;
+    main_thread->task = NULL;
+    // main_thread->context = {0};
     // assigining main context to be the last in the queue
-    swapcontext(&main_context, &all_threads[0]->context);
+    swapcontext(&main_thread->context, &all_threads[0]->context);
 }
 
 void handle_nqp_mlfq_start(){
