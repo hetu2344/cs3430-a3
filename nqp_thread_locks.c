@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "nqp_thread_locks.h"
 #include <stdlib.h>
+// #include "nqp_thread.h"
 
 
 
@@ -40,7 +41,7 @@ int nqp_thread_mutex_lock( nqp_mutex_t *mutex )
     }
 
     while(atomic_flag_test_and_set(&mutex->guard))
-        ;
+        nqp_yield();
     // if(mutex->flag == 0){
     //     mutex->flag = 1;
     //     atomic_flag_clear(&mutex->guard);

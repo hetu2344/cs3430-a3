@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "nqp_thread_locks.h"
+#include "nqp_thread.h"
 
 int counter = 0;
 nqp_mutex_t *lock;

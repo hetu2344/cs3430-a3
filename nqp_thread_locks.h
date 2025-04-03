@@ -1,4 +1,7 @@
 #pragma once
+#include "nqp_thread.h"
+#include "nqp_thread_sched.h"
+
 
 typedef struct NQP_THREAD_MUTEX_T nqp_mutex_t;
 

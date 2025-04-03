@@ -13,21 +13,6 @@
 static nqp_scheduling_policy system_policy = NQP_SP_TWOTHREADS;
 const nqp_sp_settings *policy_settings = NULL;
 
-typedef enum NQP_THREAD_STATUS_T{
-    RUNNING,
-    DONE,
-    READY,
-    SLEEP
-} nqp_thread_stat;
-
-struct NQP_THREAD_T {
-    ucontext_t context;
-    char *stack;
-    void *arg;
-    void (*task)(void *);
-    nqp_thread_stat status;
-};
-
 typedef nqp_thread_t* (*nqp_sched_get_next_func)(void);
 typedef void (*nqp_sched_start_func)(void);
 
@@ -47,8 +32,6 @@ static int curr_thread_index = -1;
 // static struct itimerval timer;
 static int timer_flag = 0;
 // static int timer_intr_usec = 100;
-
-
 
 static nqp_sched_t* schedular;
 
@@ -105,6 +88,13 @@ nqp_thread_t *nqp_thread_create( void (*task)(void *), void *arg )
 
         new_thread->context = new_cont;
         new_thread->status = READY;
+        new_thread->time_in_queue = 0;
+
+        if(system_policy == NQP_SP_MLFQ){
+            // add the policy to the mlfq schedule
+        } else {
+            new_thread->priority = -1;
+        }
         all_threads[add_thread_index++] = new_thread;
 
         return new_thread;

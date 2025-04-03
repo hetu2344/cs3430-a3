@@ -1,5 +1,26 @@
 #pragma once
 
+#include <ucontext.h>
+#include <stdint.h>
+#include <unistd.h>
+
+typedef enum NQP_THREAD_STATUS_T{
+    RUNNING,
+    DONE,
+    READY,
+    SLEEP
+} nqp_thread_stat;
+
+struct NQP_THREAD_T {
+    ucontext_t context;
+    char *stack;
+    void *arg;
+    void (*task)(void *);
+    nqp_thread_stat status;
+    int priority;
+    useconds_t time_in_queue;
+};
+
 typedef struct NQP_THREAD_T nqp_thread_t;
 
 /**
