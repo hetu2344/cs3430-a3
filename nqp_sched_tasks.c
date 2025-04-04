@@ -86,7 +86,7 @@ int main( void )
     write( STDOUT_FILENO, "\n", 1 );
 
     nqp_sp_settings settings = {0};
-    settings.mlfq_settings.queue_time_allotment = 40000;
+    settings.mlfq_settings.queue_time_allotment = 35000;
     settings.mlfq_settings.boost_time = 2000000;
 
     nqp_sched_init( NQP_SP_MLFQ, &settings );

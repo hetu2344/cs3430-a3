@@ -11,14 +11,12 @@ NQP_THREAD = nqp_thread.o nqp_mlfq_sched.o # .o files needed to comple and use n
 
 .PHONY: clean
 
-all: nqp_printer nqp_refiner nqp_sched_tasks nqp_list_insertion nqp_thread_lock_test nqp_2_thread_test
+all: nqp_printer nqp_refiner nqp_sched_tasks nqp_list_insertion nqp_thread_lock_test
 
 # nqp_mlfq_sched.o:
 # 	clang -Wall -Werror -Wextra -Wpedantic -D_FORTIFY_SOURCE=3 -g -c nqp_mlfq_sched.c -o nqp_mlfq_sched.o
 
 nqp_thread_lock_test: nqp_thread_locks.o $(NQP_THREAD)
-
-nqp_2_thread_test: $(NQP_THREAD) nqp_thread_locks.o 
 
 nqp_printer: $(NQP_THREAD) 
 

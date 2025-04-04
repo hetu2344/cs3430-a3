@@ -11,6 +11,18 @@ void *increment_counter_to_100000(void *args){
     printf("Thread [%d]: Started\n",  *(int *)args);
 
     for(int i = 0; i < 100000; i++){
+        counter++;
+    }
+
+    printf("Thread [%d]: Ended\n", *(int *) args);
+
+    return NULL;
+}
+
+void *increment_counter_to_100000_locks(void *args){
+    printf("Thread [%d]: Started\n",  *(int *)args);
+
+    for(int i = 0; i < 100000; i++){
         nqp_thread_mutex_lock(lock);
         counter++;
         nqp_thread_mutex_unlock(lock);
@@ -33,10 +45,30 @@ int main(void){
         exit(-1);
     }
 
+    printf("\n\nPhase 1 of test (not using any locks)\n\n");
+
     printf("\nThread [main]: Counter is %d\n\n", counter);
     // printf("Starting thread 1\n");
     pthread_create(&thread_1, NULL, increment_counter_to_100000,  &thread_ids[0]);
     pthread_create(&thread_2, NULL, increment_counter_to_100000,  &thread_ids[1]);
+
+    pthread_join(thread_1, NULL);
+    printf("Thread [1]: Returned.\n");
+
+    pthread_join(thread_2, NULL);
+    printf("Thread [2]: Returned\n");
+
+    printf("\nThread [main]: Counter is %d\n", counter);
+
+    printf("\n\nPhase 2 of test (using nqp_thread_locks)\n\n");
+
+    // reseting the counter
+    counter = 0;
+
+    printf("\nThread [main]: Counter is %d\n\n", counter);
+    // printf("Starting thread 1\n");
+    pthread_create(&thread_1, NULL, increment_counter_to_100000_locks,  &thread_ids[0]);
+    pthread_create(&thread_2, NULL, increment_counter_to_100000_locks,  &thread_ids[1]);
 
     pthread_join(thread_1, NULL);
     printf("Thread [1]: Returned.\n");

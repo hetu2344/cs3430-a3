@@ -1,274 +1,76 @@
----
-title: COMP 3430 Operating Systems
-subtitle: "Assignment 3: Concurrency!"
-date: Winter 2025
----
+# Title: COMP 3430 Operating Systems
+## Subtitle: "Assignment 3: Concurrency!"
+## Date: Winter 2025
+## Author: Het Patel (7972424)
 
-Overview
-========
+# Contents of the directory
 
-This directory contains the following:
+```
+[patelh29@eagle cs3430-a3]> tree
+.
+├── Makefile
+├── nqp_list_insertion.c
+├── nqp_mlfq_sched.c
+├── nqp_mlfq_sched.h
+├── nqp_printer.c
+├── nqp_refiner.c
+├── nqp_sched_tasks.c
+├── nqp_thread.c
+├── nqp_thread.h
+├── nqp_thread_locks.c
+├── nqp_thread_locks.h
+├── nqp_thread_lock_test.c
+├── nqp_thread_sched.h
+└── README.md
 
-* This `README.md` file (you're reading it!).
-* A `Makefile` that can build the sample code.
-* Several interfaces that describe how concurrency could be used
-  (`nqp_thread.h`, `nqp_thread_locks.h`, and `nqp_thread_sched.h`).
-* Some code that uses the concurrency as defined by these interfaces
-  (`nqp_printer.c`, `nqp_refiner.c`, `nqp_sched_tasks.c`, and
-  `nqp_list_insertion.c`).
+0 directories, 14 files
+```
 
-Building and running
-====================
+# How to run the assignment
 
-You can compile all programs on the command line:
-
-```bash
+- Run the command below to compile the assignment files
+```
 make
 ```
+- The above command will create the following object files:
+    1. nqp_thread_locks.o
+    2. nqp_thread.o
+    3. nqp_mlfq_sched.o
+    - **Notes**: 
+        - Since nqp_thread.o need nqp_mlfq_sched.o file, if you are using npq_threads to compile a test program, you have to include nqp_mlfq_sched.o as well.
+        - To make compilation easier, I have created a variable `NQP_THREAD` in *Makefile*, which contains *both nqp_thread.o* and *nqp_mlfq_sched.o*
+        - Another things since *nqp_thread_locks.o* used `nqp_yield()`, if you can compiling a test program which is using the nqp_thread_locks then you have to compile with the `NQP_THREAD` in *Makefile*, **EVEN IF THE TEST PROGRAM DOES NOT USES `nqp_thread`!**
 
-`nqp_printer.c`
----------------
+- Follwoing are the executable files that the above command will create along with the object files:
+    1. nqp_sched_tasks
+    2. nqp_thread_lock_test
+    3. nqp_refiner
+    4. nqp_printer
+    5. nqp_list_insertion
 
-You can run this program on the command line:
+# Test files I(Het) created
 
-```bash
-./nqp_printer
-```
+## nqp_thread_lock_test.c
 
-This code, as is, will crash: the default return value from `nqp_thread_create`
-is `NULL`, and the code in `nqp_thread_join` has an `assert`ion that the passed
-argument is not `NULL`. You must minimally implement `nqp_thread_create` for
-this code to (as is) not crash.
+- This file test the correctness and mutual exclusion of the locks implemented in `nqp_thread_locks.c` file.
+- This program will attempt to run a task which will increament a counter to **100000** by create threads using `pthread_create` and will same 
+- The first phase of test will run 2 threads without using any locks and the value of counter after that should be less that 200000 because of race condition in the `for-loop`.
+- The first phase of test will run 2 threads using
+nqp_thread_locks and the value of counter after that should be exactly equal to 200000 because of the lock being present before race condition in the `for-loop`.
 
-The expected output for this program is for it to switch back and forth between
-printing `a` and `b` with an integer that demonstrates state begin retained
-between each call.
+# Implementation of Schedulars
 
-`nqp_refiner.c`
----------------
+## RR, TWOTHREADS and FIFO
 
-Refine some macrodata! You can run this program on the command line:
+- Implementation of the Round Robin(RR) and First In First Out(FIFO) schedular are in the nqp_thread.c
+- TWOTHREADS is just a special case for RR with 2 threads in it. So, the implementation of RR is the implementation of the TWOTHREADS.
 
-```bash
-./nqp_refiner
-```
+## MLFQ
 
-This code, as is, will crash: the default return value from `nqp_thread_create`
-is `NULL`, and the code in `nqp_thread_join` has an `assert`ion that the passed
-argument is not `NULL`. You must minimally implement `nqp_thread_create` for
-this code to (as is) not crash.
+- I have implemented the Multi Level Feedback Queue (MLFQ) in the seprated file named nqp_mlfq_sched.c file which have a header file as well (nqp_mlfq_sched.h).
 
-The expected output for this program is to display progress for many workers:
+# Changes to Professor's test files
 
-[![asciicast](https://asciinema.org/a/6Ew1SkoeW9vTDaCpLPAxszxuk.svg)](https://asciinema.org/a/6Ew1SkoeW9vTDaCpLPAxszxuk)
-
-`nqp_sched_tasks.c`
--------------------
-
-You can run this program on the command line:
-
-```bash
-./nqp_sched_tasks
-```
-
-This code creates several different kinds of tasks: interactive tasks (ones that
-use very little CPU time before yielding), semi-interactive tasks (ones that use
-a moderate amount of CPU time before yielding), and non-interactive tasks (ones
-that use a lot of CPU time before yielding).
-
-This code, as is, will crash: the default return value from `nqp_thread_create`
-is `NULL`, and he code in `nqp_thread_join` has an `assert`ion that the passed
-argument is not `NULL`. You must minimally implement `nqp_thread_create` for
-this code to (as is) not crash.
-
-You can run and modify this program to test out each of the different scheduling
-policies that you've implemented. The expected output is different for each
-policy.
-
-### Expected output for FIFO
-
-The output for FIFO is:
-
-```
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiissssssssss
-ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
-ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
-ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
-ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
-ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssnnnnnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-All done!
-```
-
-Newlines have been added for clarity in this `README.md`; the expected output
-for this is for all output from threads to be on the same line.
-
-The output for FIFO is deterministic, it should always be exactly the same 
-every time the program is run.
-
-### Expected output for RR
-
-The output for RR is:
-
-```
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-All done!
-```
-
-Newlines have been added for clarity in this `README.md`; the expected output
-for this is for all output from threads to be on the same line.
-
-The output for RR is deterministic, it should always be exactly the same every
-time the program is run.
-
-### Expected output from MLFQ
-
-Unlike RR and FIFO, the output from MLFQ is *not* deterministic. Our
-implementation of the policy relies on real clock time to determine when we
-should lower the priority of tasks and when we should boost the priority of all
-tasks. While the amount of time that we're sleeping for is "deterministic" (it's
-not, really, but it's close enough), the use of actual time elapsed also
-includes things like how much time the thread spent on the CPU waiting for the
-`write` system call to be serviced, which itself includes things like mode and
-context switching, and how long the thread spent waiting for our actual OS to
-schedule our process again.
-
-I (me, Franklin) have included several examples of output from my implementation
-of MLFQ to give you an approximate idea of what you could expect your output to
-look like.
-
-While the output is not deterministic, it generally has the following
-properties:
-
-* Interactive tasks tend to get access to the CPU for more time earlier on, and
-  thus finish earlier,
-* Semi-interactive tasks tend to get access to the CPU for more time midway
-  through the set of tasks and finish in the middle, and
-* Non-interactive tasks tend to not get access to the CPU until the end of the
-  run.
-
-Importantly, though: all tasks *do* get some initial access to the CPU fairly
-early on (notice how all tasks are run in round-robin for the very first go
-through the set of tasks), with the non-interactive tasks exhausting their time
-in the top priority queue very quickly.
-
-As above, all examples have had newlines added for clarity in this `README.md`;
-the expected output is for all output from threads to be on the same line.
-
-#### MLFQ example 1
-
-```
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiissssssssssssssssssssssssssssssssssssssssssss
-ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
-sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssnnnnnnnnnnnnn
-nisssssssssssssnnnnnnnnnnnnnnisssssssssssssssssssssssssssssssssssssssssssnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnniiiiiiisssssssssssssssssssssssssssnnnnnnnnnnnnnnssssssssssnnnnnn
-nnnnnnnnssssssssnnnnnnnnnnnnnnssssssssnnnnnnnnnnnnnnsssssnnnnnnnnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnssssssssssssssssssssnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-All done!
-```
-
-#### MLFQ example 2
-
-```
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnniiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiisssssssssssssssssssssssssssssssssssssssssssssss
-sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssnnnnn
-nnnnnnnnnissssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
-ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnis
-ssssssssssssnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnniissssssssssssssssssssss
-sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssnnnnn
-nnnnnnnnnnnnnnnnnnnnnsssssssnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-All done!
-```
-
-#### MLFQ example 3
-
-```
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnn
-iiiiiiiiiiiiisssssssssssssnnnnnnnnnnnnnniiiiiiiiiiiiisssssssssssssssssssssssssss
-ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
-sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnniiiiiiiiiiiiisssss
-ssssssssnnnnnnnnnnnnnniiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiisssssssssssssssssssssssssss
-ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
-ssssssssssssssssssssssnnnnnnnnnnnnnnsssssnnnnnnnnnnnnnnsssssssssssssssssssssssss
-ssssssssssssssssssnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnsnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-All done!
-```
-
-`nqp_list_insertion.c`
-----------------------
-
-You can run this program on the command line:
-
-```bash
-./nqp_list_insertion
-```
-
-This code, as is, will crash: the default return value from `nqp_thread_create`
-is `NULL`, and the code in `nqp_thread_join` has an `assert`ion that the passed
-argument is not `NULL`. You must minimally implement `nqp_thread_create` for
-this code to (as is) not crash.
-
-This program demonstrates the worst-case scenario for multi-threaded list
-insertion, where every thread is "interrupted" after it gets the value for the
-next for the new node, but before it's able to set the next of the node already
-in the list (we've got a node that is pointing at a node in the list, but nobody
-is pointing at it).
-
-Since this is the worst case, the output with no locks or locks that do not
-enforce mutual exclusion will be a list that consists of two nodes: the head of
-the list (the one we're always inserting after) and the node that was to be
-inserted by the last thread able to complete its insertion.
-
-With locks that enforce mutual exclusion, this will be a list that contains the
-number of threads started + 1 (+1 for the initial head node).
+- None of the test files provided by the professor is changed except **nqp_sched_tasks.c**, I have to change the `settings.mlfq_settings.queue_time_allotment` at line **89** to make the output from the program simillar to **MLFQ**. 
+- If the value provided by the professor, that is 125000, is used than it was behaving like a Round Robin. The reason behind is that the queue_time_allotment is high and none of the threads was able to excced that time frame and they were never getting palced to lower priority level, which resulted in a Round Robin behaviour (which is possible if somehow all threads manages to stay in same priority).
+- When the `settings.mlfq_settings.queue_time_allotment` value is set to `<= 40000` then the output was more simillar to **MLFQ**.
