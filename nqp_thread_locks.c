@@ -58,7 +58,16 @@ int nqp_thread_mutex_trylock( nqp_mutex_t *mutex )
 {
     (void) mutex;
 
-    return -1;
+    // check if the lock is initialized of not
+    if(mutex->init != 1){
+        return -1;
+    }
+
+    if(atomic_flag_test_and_set(&mutex->guard)){
+        return 0;
+    }
+       
+    return 1;
 }
 
 int nqp_thread_mutex_unlock( nqp_mutex_t *mutex )

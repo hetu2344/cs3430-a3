@@ -12,6 +12,7 @@
 #include "nqp_thread.h"
 #include "nqp_thread_sched.h"
 
+#pragma pack(push, 1)
 struct NQP_MLFQ_SCHEDULAR {
     useconds_t queue_time_allotment; // this is time allotment as described in 
                                      // OSTEP for the final set of MLFQ rules.
@@ -25,6 +26,7 @@ struct NQP_MLFQ_SCHEDULAR {
     struct timespec last_boost_time;
     nqp_queue *queue_list[];
 };
+#pragma pack(pop)
 
 struct NQP_QUEUE{
     int priority;
@@ -35,26 +37,31 @@ struct NQP_QUEUE{
 };
 
 nqp_mlfq *init_mlfq_sched(const nqp_sp_mlfq_settings *settings, nqp_thread_t **all_threads, const int num_threads){
-    nqp_mlfq *sched = malloc(sizeof(*sched) + (sizeof(nqp_queue *) * settings->queues));
+    int num_queues = settings->queues ? settings->queues : 3;
+    nqp_mlfq *sched = malloc(sizeof(*sched) + (sizeof(nqp_queue *) * num_queues));
     sched->queue_time_allotment = settings->queue_time_allotment;
     sched->boost_time = settings->boost_time;
-    sched->queues = settings->queues;
+    sched->queues = num_queues;
     sched->num_threads = num_threads;
     sched->last_thread = NULL;
-    for(int i = 0; i < settings->queues; i++){
+    for(int i = 0; i < num_queues; i++){
         nqp_queue *queue = init_nqp_queue(num_threads);
         queue->priority = i;
+        sched->queue_list[i] = queue;
     }
 
     // When we are starting the schedular
     // we put all of threads in highest priority queue
-    int hpq_index = settings->queues - 1; // Index of Highest Priority Queue in the schedular
+    int hpq_index = num_queues - 1; // Index of Highest Priority Queue in the schedular
     nqp_queue *hp_queue = sched->queue_list[hpq_index]; // Highest Priority queue in the schedular
     for(int i = 0; i < num_threads; i++){
         all_threads[i]->priority = hpq_index;
         enqueue_thread(hp_queue, all_threads[i]);
     }
 
+    struct timespec current_time;
+    clock_gettime(CLOCK_REALTIME, &current_time);
+    sched->last_boost_time = current_time;
     return sched;
 }
 
@@ -122,6 +129,8 @@ void apply_mlfq_rules(nqp_mlfq *sched){
         // Rule 4 check
         // Check if the thread exceeded its time allotment and is eligible for demotion
         if (last_thread->time_in_queue >= sched->queue_time_allotment && last_thread->priority > 0) {
+ //           printf("CHANGE: Thread []: %d\n", last_thread->time_in_queue);
+            // printf("\n\ndemoting\n");
             // Demote the thread by lowering its priority
             last_thread->priority--;
             // Optionally, reset the time counter if your design requires it:
@@ -144,11 +153,24 @@ void apply_mlfq_rules(nqp_mlfq *sched){
     clock_gettime(CLOCK_REALTIME, &current_time);
     useconds_t boost_time_diff = (current_time.tv_sec - sched->last_boost_time.tv_sec) * 1000000 + (current_time.tv_nsec - sched->last_boost_time.tv_nsec) / 1000;
     if(boost_time_diff > sched->boost_time){
+//        printf("\n\nbooot\n");
         // dequeue all threads from all threads except topmost
         // enqueue all queue in the topmost queue
         int queue_to_itir = sched->queues - 2;
         int hpq_index = sched->queues - 1;
         nqp_thread_t *temp;
+
+        // Changing the time in queue for thread in the topmost queue
+        // but not removing them
+        nqp_thread_t **elements = sched->queue_list[hpq_index]->elements;
+        int size = sched->queue_list[hpq_index]->size;
+        for(int i = 0; i < size; i++){
+            if((temp = elements[i]) != NULL){
+                temp->time_in_queue = 0;
+            }
+        }
+        
+        temp = NULL;
         for(int i = queue_to_itir; i > -1; i--){
             while((temp = dequeue_thread(sched->queue_list[i])) != NULL){
                 enqueue_thread(sched->queue_list[hpq_index], temp);
@@ -168,6 +190,10 @@ void add_new_thread(nqp_mlfq *sched, nqp_thread_t *thread){
     int hpq_index = sched->queues - 1;
     thread->priority = hpq_index;
     enqueue_thread(sched->queue_list[hpq_index], thread);
+}
+
+nqp_thread_t *get_last_thread(nqp_mlfq *sched){
+    return sched->last_thread;
 }
 
 nqp_thread_t *get_next_thread(nqp_mlfq *sched){
@@ -190,5 +216,11 @@ nqp_thread_t *get_next_thread(nqp_mlfq *sched){
         // try get a thread from current queue level
         thread = dequeue_thread(sched->queue_list[i]);
     }
+
+    sched->last_thread = thread;
     return thread;
+}
+
+int get_num_queues(nqp_mlfq *sched){
+    return (int) sched->queues;
 }

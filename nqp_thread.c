@@ -16,14 +16,15 @@ const nqp_sp_settings *policy_settings = NULL;
 
 static nqp_mlfq *mlfq_sched = NULL;
 
-typedef nqp_thread_t* (*nqp_sched_get_next_func)(void);
+typedef nqp_thread_t* (*nqp_sched_get_thread_func)(void);
 typedef void (*nqp_sched_start_func)(void);
 
 typedef struct NQP_SCHEDULAR_T{
     nqp_scheduling_policy sched_policy;
     const nqp_sp_settings* sched_settings;
-    nqp_sched_get_next_func get_next_thread;
+    nqp_sched_get_thread_func get_next_thread;
     nqp_sched_start_func start_sched;
+    nqp_sched_get_thread_func get_curr_thread;
 }nqp_sched_t;
 
 static nqp_thread_t *main_thread;
@@ -37,6 +38,8 @@ static int timer_flag = 0;
 
 static nqp_sched_t* schedular;
 
+nqp_thread_t *get_current_thread();
+nqp_thread_t *get_mlfq_current_thread();
 nqp_thread_t *get_fifo_next_thread();
 nqp_thread_t *get_mlfq_next_thread();
 nqp_thread_t *get_rr_next_thread();
@@ -130,12 +133,15 @@ void init_nqp_sched(){
     if(system_policy == NQP_SP_FIFO){
         schedular->get_next_thread = get_fifo_next_thread;
         schedular->start_sched = handle_nqp_fifo_start;
+        schedular->get_curr_thread = get_current_thread;
     } else if(system_policy == NQP_SP_RR || system_policy == NQP_SP_TWOTHREADS){
         schedular->get_next_thread = get_rr_next_thread;
         schedular->start_sched = handle_nqp_rr_start;
+        schedular->get_curr_thread = get_current_thread;
     } else if(system_policy == NQP_SP_MLFQ){
         schedular->get_next_thread = get_mlfq_next_thread;
         schedular->start_sched = handle_nqp_mlfq_start;
+        schedular->get_curr_thread = get_mlfq_current_thread;
     }
 }
 
@@ -191,6 +197,14 @@ nqp_thread_t *get_rr_next_thread(){
     
 }
 
+nqp_thread_t *get_current_thread(){
+    return all_threads[curr_thread_index];
+}
+
+nqp_thread_t *get_mlfq_current_thread(){
+    return get_last_thread(mlfq_sched);
+}
+
 nqp_thread_t *get_mlfq_next_thread(){
     return get_next_thread(mlfq_sched);
 }
@@ -228,27 +242,34 @@ nqp_thread_t *get_fifo_next_thread(){
 
 void nqp_yield( void )
 {
+    if (!add_thread_index){
+        return;
+    }
+    
     struct timespec current_time;
     clock_gettime(CLOCK_REALTIME, &current_time);
 
-    nqp_thread_t* curr_thread = all_threads[curr_thread_index];
+    nqp_thread_t* curr_thread = schedular->get_curr_thread();
 
     // set the priority of main thread to 0 (low priority)
-    if(curr_thread == main_thread){
+    if(system_policy == NQP_SP_MLFQ && curr_thread == main_thread){
         // printf("\n\nMain Thread\n\n");
-        curr_thread->priority = 0;
+        
+        int rand_priority = rand() % (get_num_queues(mlfq_sched) - 1);
+        curr_thread->priority = rand_priority;
     }
 
     struct timespec last_start_time = curr_thread->last_start_time;
     useconds_t time_spend = (current_time.tv_sec - last_start_time.tv_sec) * 1000000 + (current_time.tv_nsec - last_start_time.tv_nsec) / 1000;
     curr_thread->time_in_queue += time_spend;
+    //printf("Thread[%s]: %d\n", (char *) curr_thread->arg, curr_thread->time_in_queue);
 
     // schedule another (maybe different) task.
-    if(curr_thread_index < 0 || curr_thread_index >= add_thread_index){
-    // if( curr_thread_index >= add_thread_index){
-        timer_flag = 0;
-        return;
-    }
+    // if(curr_thread_index < 0 || curr_thread_index >= add_thread_index){
+    // // if( curr_thread_index >= add_thread_index){
+    //     timer_flag = 0;
+    //     return;
+    // }
 
     // update the context of the current running thread
 
@@ -277,7 +298,7 @@ void nqp_yield( void )
 void nqp_exit( void )
 {
     // remove the currently executing thread from the system.
-    nqp_thread_t *curr_thread = all_threads[curr_thread_index];
+    nqp_thread_t *curr_thread = schedular->get_curr_thread();
     curr_thread->status = DONE;
     // printf("exit called\n");
     if(!timer_flag){
@@ -344,7 +365,15 @@ void handle_nqp_fifo_start(){
 }
 
 void handle_nqp_mlfq_start(){
+    randomly_add_main_thread();
     mlfq_sched = init_mlfq_sched(&policy_settings->mlfq_settings, all_threads, (const int) add_thread_index);
+    nqp_thread_t *next_thread = get_next_thread(mlfq_sched);
+    next_thread->status = RUNNING;
+
+    struct timespec current_time;
+    clock_gettime(CLOCK_REALTIME, &current_time);
+    next_thread->last_start_time = current_time;
+    swapcontext(&main_thread->context, &next_thread->context);
     return;
 }
 

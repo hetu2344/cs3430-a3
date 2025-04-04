@@ -17,3 +17,5 @@ nqp_thread_t *dequeue_thread(nqp_queue *);
 nqp_thread_t *get_next_thread(nqp_mlfq *);
 void apply_mlfq_rule(nqp_mlfq *);
 void add_new_thread(nqp_mlfq *, nqp_thread_t *);
+nqp_thread_t *get_last_thread(nqp_mlfq *);
+int get_num_queues(nqp_mlfq *);
