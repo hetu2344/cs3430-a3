@@ -22,7 +22,7 @@ struct NQP_MLFQ_SCHEDULAR {
     uint8_t queues;                  // how many queues should we have?
     int num_threads;
     nqp_thread_t *last_thread;
-    useconds_t last_boost_time;
+    struct timespec last_boost_time;
     nqp_queue *queue_list[];
 };
 
@@ -136,8 +136,29 @@ void apply_mlfq_rules(nqp_mlfq *sched){
         // Enqueue the thread back into the appropriate queue
         enqueue_thread(sched->queue_list[last_thread->priority], last_thread);
     }
-    
 
+    // Rule 5 implementation
+    // After S time period, move all
+    // jobs to topmost priority
+    struct timespec current_time;
+    clock_gettime(CLOCK_REALTIME, &current_time);
+    useconds_t boost_time_diff = (current_time.tv_sec - sched->last_boost_time.tv_sec) * 1000000 + (current_time.tv_nsec - sched->last_boost_time.tv_nsec) / 1000;
+    if(boost_time_diff > sched->boost_time){
+        // dequeue all threads from all threads except topmost
+        // enqueue all queue in the topmost queue
+        int queue_to_itir = sched->queues - 2;
+        int hpq_index = sched->queues - 1;
+        nqp_thread_t *temp;
+        for(int i = queue_to_itir; i > -1; i--){
+            while((temp = dequeue_thread(sched->queue_list[i])) != NULL){
+                enqueue_thread(sched->queue_list[hpq_index], temp);
+                temp->priority = hpq_index;
+                temp->time_in_queue = 0;
+            }
+        }
+        clock_gettime(CLOCK_REALTIME, &current_time);
+        sched->last_boost_time = current_time;
+    }
 }
 
 // Implementation of Rule 3

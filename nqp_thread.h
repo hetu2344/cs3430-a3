@@ -3,6 +3,7 @@
 #include <ucontext.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <time.h>
 
 typedef enum NQP_THREAD_STATUS_T{
     RUNNING,
@@ -18,6 +19,7 @@ struct NQP_THREAD_T {
     void (*task)(void *);
     nqp_thread_stat status;
     int priority;
+    struct timespec last_start_time;
     useconds_t time_in_queue;
 };
 
